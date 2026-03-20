@@ -1,4 +1,4 @@
-"""Single-step predictor neural network (FNO-based, Case 1)."""
+"""FNO model for Case 1: uniform sampling, sampling-horizon prediction operator (M̂)."""
 
 import torch.nn as nn
 import torch

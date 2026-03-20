@@ -1,4 +1,4 @@
-"""Train the single-step predictor model (Case 1)."""
+"""Train the FNO for Case 1: uniform sampling, sampling-horizon prediction operator."""
 
 import sys
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""Multistep predictor neural network (FNO-based, Case 2)."""
+"""FNO model for Case 2: bounded sampling, predictor approximation operator (P̂)."""
 
 import torch.nn as nn
 import torch
@@ -49,7 +49,7 @@ class MultistepPredictorFNO(nn.Module):
         # FNO1d expects (batch, channels, grid)
         y = self.fno(x.transpose(1, 2))   # (B, C, G_in)
 
-        # Resize latent grid to desired multistep horizon
+        # Resize latent grid to the desired sampling horizon length
         if y.shape[-1] != self.output_horizon:
             y = F.interpolate(
                 y,

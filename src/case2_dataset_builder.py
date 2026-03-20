@@ -1,4 +1,8 @@
-"""Dataset builder for the multistep predictor model (Case 2)."""
+"""Dataset builder for Case 2: bounded sampling, predictor approximation operator.
+
+Generates supervised training pairs (measurement, input history) -> predictor
+state at the end of the delay horizon, using high-accuracy Picard labels.
+"""
 
 import numpy as np
 import os
@@ -9,9 +13,9 @@ from src.simulate import build_robot, make_reference, make_simulator, sample_ini
 from src.case1_dataset_builder import exact_predictor_label
 
 def exact_multistep_predictor_label(sim, cfg, q_meas, v_meas, u_hist, t0=0.0):
-    """Compute the exact multistep predictor label for one sample.
+    """Compute the exact Case 1 sampling-horizon prediction label for one sample.
 
-    Applies the single-step predictor then rolls out the hybrid controller
+    Applies the predictor operator (P) then rolls out the closed-loop flow
     for sample_steps steps to build the full trajectory label.
 
     Inputs:  sim bundle, cfg dict, q_meas (nq,), v_meas (nv,),
@@ -48,7 +52,7 @@ def extract_multistep_predictor_samples(
     verbose=False,
     log_interval=100,
 ):
-    """Extract supervised multistep (X, U, Y) samples from one simulation rollout.
+    """Extract supervised (X, U, Y) trajectory samples for Case 1 from one rollout.
 
     Inputs:  out dict from simulate, sim bundle, cfg dict, stride int,
              flatten_target bool
@@ -217,7 +221,7 @@ def validate_multistep_dataset_labels(
     return errors
 
 def save_multistep_predictor_dataset(dataset, cfg, path):
-    """Save the multistep dataset to a compressed .npz file."""
+    """Save the Case 1 sampling-horizon prediction dataset to a compressed .npz file."""
     np.savez_compressed(
         path,
         state=dataset["state"],
@@ -227,7 +231,7 @@ def save_multistep_predictor_dataset(dataset, cfg, path):
     )
 
 def _run_one_multistep_rollout(args):
-    """Run one simulation rollout in a worker process and return extracted samples.
+    """Run one simulation rollout in a worker process and return extracted Case 1 samples.
 
     Inputs:  args tuple (rollout_idx, seed, cfg, stride, flatten_target,
              q_meas_noise_std, v_meas_noise_std, use_noisy_measurement_for_reset)
@@ -309,7 +313,7 @@ def build_multistep_predictor_dataset_parallel(
     use_noisy_measurement_for_reset=True,
     verbose=True,
 ):
-    """Build a full multistep supervised dataset in parallel across multiple rollouts.
+    """Build the full Case 1 sampling-horizon prediction dataset in parallel across multiple rollouts.
 
     Inputs:  cfg dict, n_rollouts, stride, seed, max_workers, flatten_target,
              q_meas_noise_std, v_meas_noise_std, use_noisy_measurement_for_reset, verbose

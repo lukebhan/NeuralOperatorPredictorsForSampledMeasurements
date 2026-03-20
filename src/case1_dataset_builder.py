@@ -1,7 +1,7 @@
-"""Dataset builder for the single-step predictor (Case 1).
+"""Dataset builder for Case 1: uniform sampling, sampling-horizon prediction operator.
 
-Generates supervised training data from simulated rollouts using
-high-accuracy Picard labels.
+Generates supervised training pairs (measurement, input history) -> predicted
+state trajectory over the sampling horizon, using high-accuracy Picard labels.
 """
 
 import numpy as np
@@ -179,7 +179,7 @@ def validate_dataset_labels(
     return errors
 
 def save_predictor_dataset(dataset, cfg, path):
-    """Save the single-step dataset to a compressed .npz file."""
+    """Save the Case 2 predictor approximation dataset to a compressed .npz file."""
     np.savez_compressed(
         path,
         state=dataset["state"],
@@ -267,7 +267,7 @@ def build_predictor_dataset_parallel(
     use_noisy_measurement_for_reset=True,
     verbose=True,
 ):
-    """Build a full single-step supervised dataset using parallel rollouts.
+    """Build the full Case 2 predictor approximation dataset using parallel rollouts.
 
     Inputs:  cfg dict, n_rollouts, stride, seed, max_workers, noise params, verbose
     Returns: dataset dict with "state", "u_hist", "predictor",

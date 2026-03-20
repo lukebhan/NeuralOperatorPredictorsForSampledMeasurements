@@ -1,4 +1,4 @@
-"""Training utilities for the single-step predictor model (Case 1)."""
+"""Training utilities for Case 1: uniform sampling, sampling-horizon prediction operator."""
 
 import numpy as np
 import torch

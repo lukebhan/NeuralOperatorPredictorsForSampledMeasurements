@@ -1,11 +1,11 @@
-"""Predictor factory helpers for numerical and learned models."""
+"""Factory functions wrapping the numerical and learned neural operator predictors."""
 
 import torch
 import numpy as np
 
 
 def make_learned_single_step_predictor(model, stats, device):
-    """Wrap a trained single-step FNO as a predictor bundle.
+    """Wrap a trained Case 2 predictor operator FNO (P̂) as a predictor bundle.
 
     Inputs:  trained model, normalization stats dict, torch device
     Returns: dict with "kind": "single_step" and "predict"(q, v, u_hist) -> (q_pred, v_pred)
@@ -47,7 +47,7 @@ def make_learned_single_step_predictor(model, stats, device):
     }
 
 def make_numerical_predictor(sim, cfg):
-    """Wrap the Picard-based approximate predictor from the simulator bundle.
+    """Wrap the Picard iteration numerical predictor as a predictor bundle.
 
     Inputs:  sim bundle, cfg dict
     Returns: dict with "kind": "numerical" and "predict"(q, v, u_hist) -> (q_pred, v_pred)
@@ -70,7 +70,7 @@ def make_numerical_predictor(sim, cfg):
     }
 
 def make_learned_multistep_predictor(model, stats, device, robot, cfg):
-    """Wrap a trained multistep FNO as a predictor bundle.
+    """Wrap a trained Case 1 sampling-horizon prediction operator FNO (M̂) as a predictor bundle.
 
     Inputs:  trained model, normalization stats dict, torch device, robot bundle, cfg dict
     Returns: dict with "kind": "multistep" and

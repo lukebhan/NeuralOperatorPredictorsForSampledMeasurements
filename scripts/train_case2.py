@@ -1,4 +1,4 @@
-"""Train the multistep predictor FNO model (Case 2)."""
+"""Train the FNO for Case 2: bounded sampling, predictor approximation operator."""
 
 import sys
 from pathlib import Path

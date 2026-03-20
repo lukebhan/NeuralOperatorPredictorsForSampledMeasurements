@@ -517,8 +517,8 @@ def simulate_with_predictor(
     """Simulate the closed-loop system using a pluggable predictor.
 
     Runs the delayed-feedback loop and resets the hybrid internal state at
-    each sampling instant via predictor["predict"]. Supports single-step,
-    numerical, and multistep predictor kinds and optional random sample gaps.
+    each sampling instant via predictor["predict"]. Supports Case 1 (sampling-horizon
+    prediction operator), Case 2 (predictor approximation), numerical, and optional random sample gaps.
 
     Inputs:  sim, robot, ref, cfg bundles; predictor dict with "kind" and
              "predict" callable; initial state, noise std devs, rng, sampling params
@@ -548,7 +548,7 @@ def simulate_with_predictor(
         raise ValueError(f"Unknown predictor kind '{predictor_kind}'. Expected one of {valid_kinds}.")
 
     if predictor_kind == "multistep" and random_sampling:
-        raise ValueError("multistep predictor requires fixed sampling; random_sampling must be False.")
+        raise ValueError("Case 1 (sampling-horizon prediction operator) requires fixed sampling; random_sampling must be False.")
 
     if rng is None:
         rng = np.random.default_rng()
@@ -600,7 +600,7 @@ def simulate_with_predictor(
     qz = q.copy()
     vz = v.copy()
 
-    # Current multistep trajectory and index into it.
+    # Current Case 1 sampling-horizon trajectory and index into it.
     z_traj_active = None
     z_traj_index = 0
 

@@ -1,4 +1,4 @@
-"""Generate the multistep predictor training dataset (Case 2)."""
+"""Generate the training dataset for Case 2: predictor approximation operator."""
 
 import sys
 from pathlib import Path

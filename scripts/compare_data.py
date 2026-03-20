@@ -1,4 +1,4 @@
-"""Compare fixed-vs-multistep predictor datasets (visual diagnostics)."""
+"""Compare Case 2 (predictor approximation) vs Case 1 (sampling-horizon prediction) datasets (visual diagnostics)."""
 
 import numpy as np
 import matplotlib.pyplot as plt

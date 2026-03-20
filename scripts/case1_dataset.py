@@ -1,4 +1,4 @@
-"""Generate the single-step predictor training dataset (Case 1)."""
+"""Generate the training dataset for Case 1: sampling-horizon prediction operator."""
 
 import sys
 from pathlib import Path

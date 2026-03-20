@@ -1,4 +1,4 @@
-"""Training utilities for the multistep predictor model (Case 2)."""
+"""Training utilities for Case 2: bounded sampling, predictor approximation operator."""
 
 import numpy as np
 import torch
@@ -28,7 +28,7 @@ def build_multistep_fno_dataset(dataset):
     return X, target
 
 def fit_multistep_normalizers(X_train, Y_train, eps=1e-8):
-    """Compute per-channel mean and std for normalizing multistep inputs and trajectories.
+    """Compute per-channel mean and std for normalizing Case 1 inputs and trajectory targets.
 
     Inputs:  X_train (N, delay_steps, channels), Y_train (N, horizon, state_dim), eps float
     Returns: stats dict with "x_mean", "x_std", "y_mean", "y_std"
@@ -277,7 +277,7 @@ def plot_multistep_training_history(history):
     plt.yscale("log")
     plt.xlabel("epoch")
     plt.ylabel("MSE loss")
-    plt.title("Multistep predictor training history")
+    plt.title("Case 1 sampling-horizon prediction operator training history")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
