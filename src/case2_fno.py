@@ -1,3 +1,5 @@
+"""Multistep predictor neural network (FNO-based, Case 2)."""
+
 import torch.nn as nn
 import torch
 from neuralop.models import FNO1d
@@ -14,6 +16,11 @@ class MultistepPredictorFNO(nn.Module):
         output_dim,
         output_horizon,
     ):
+        """
+        Args: hidden_size, num_layers, modes (Fourier), input_channel (state+control),
+              fno_output_channel (trunk/head width), output_dim (nq+nv),
+              output_horizon (sample_steps+1)
+        """
         super().__init__()
 
         self.output_horizon = output_horizon

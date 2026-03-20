@@ -1,16 +1,20 @@
+"""Simulator and predictor utilities.
+
+Wires together the Pinocchio plant, RK4 integrator, hybrid controller,
+Picard-based numerical predictor, and pluggable learned predictor loop.
+"""
+
 import pinocchio as pin
 import numpy as np
 import time
 
-def robot_factory(cfg):
-    return build_robot(cfg["urdf"])
-
-def ref_factory(cfg):
-    robot = build_robot(cfg["urdf"])
-    return make_reference(robot, cfg)
 
 def sample_initial_state(robot, rng, q_scale=0.01, v_scale=0.01):
+    """Sample a random initial state near the robot's neutral configuration.
 
+    Inputs:  robot bundle, seeded rng, perturbation half-widths q_scale / v_scale
+    Returns: (q0, v0) ndarrays
+    """
     model = robot["model"]
 
     # uniform perturbation in tangent space
@@ -28,6 +32,12 @@ def sample_initial_state(robot, rng, q_scale=0.01, v_scale=0.01):
     return q0, v0
 
 def build_robot(urdf):
+    """Load a Pinocchio robot model from a URDF file.
+
+    Inputs:  urdf path string
+    Returns: dict with keys "model", "data", "nq", "nv"
+    Raises:  ValueError if nq != nv
+    """
     model = pin.buildModelFromUrdf(urdf)
     data = model.createData()
 
@@ -46,10 +56,16 @@ def build_robot(urdf):
 
 
 def make_reference(robot, cfg):
+    """Build sinusoidal desired-trajectory callables for the robot joints.
+
+    Inputs:  robot bundle, cfg dict (uses "traj_w" and "traj_amp")
+    Returns: dict with callables "q_des"(t), "v_des"(t), "a_des"(t)
+    """
     model = robot["model"]
     nq = robot["nq"]
 
     q_ref0 = pin.neutral(model).copy()
+    # Stagger joint phases so joints don't all peak simultaneously
     phases = np.linspace(0.0, np.pi / 2.0, nq)
 
     traj_w = cfg["traj_w"]
@@ -71,6 +87,14 @@ def make_reference(robot, cfg):
     }
 
 def make_simulator(robot, cfg, ref):
+    """Construct all simulation primitives as a callable bundle.
+
+    Closes over robot, config, and reference to produce plant integrators,
+    the hybrid controller, the Picard predictor, and the main simulate loop.
+
+    Inputs:  robot bundle, cfg dict, ref bundle
+    Returns: dict of callables (plant, controller, predictor, simulate, etc.)
+    """
     model = robot["model"]
     data = robot["data"]
     nq = robot["nq"]
@@ -145,6 +169,7 @@ def make_simulator(robot, cfg, ref):
         return clip_tau(tau)
 
     def hybrid_feedback_tau(qz, vz, t_now):
+        # qz predicts the plant D seconds ahead, so target the reference at t + D.
         return nominal_controller(qz, vz, t_now + D)
 
     # --------------------------------------------------------
@@ -217,6 +242,8 @@ def make_simulator(robot, cfg, ref):
     # --------------------------------------------------------
 
     def local_picard_map(z0, tau_i, h, tol=1e-6, max_iters=20, M=4):
+        # Trapezoid-rule Picard iteration over M sub-intervals of length h/M,
+        # repeated until the grid converges or max_iters is reached.
         ds = h / M
         y = np.tile(z0[None, :], (M + 1, 1))
 
@@ -240,6 +267,8 @@ def make_simulator(robot, cfg, ref):
         return y[-1].copy(), max_iters
 
     def approximate_predictor(q_now, v_now, u_history, h, tol=1e-6, max_iters=20, M=4):
+        # Chain one Picard step per delay interval. Third return value is the
+        # mean iteration count per step, useful as a convergence diagnostic.
         z = pack_state(q_now, v_now)
         total_picard_iters = 0
 
@@ -282,13 +311,13 @@ def make_simulator(robot, cfg, ref):
         else:
             v = v0.copy()
 
-        # Preset history on [-D, 0)
+        # Pre-fill the delay buffer with the gravity-hold torque (stand-in for t < 0).
         tau_hold = pin.rnea(model, data, q, v, np.zeros(nv))
         tau_hold = clip_tau(tau_hold)
 
         u_buffer = [tau_hold.copy() for _ in range(delay_steps)]
 
-        # Initialize internal hybrid state via predictor
+        # Warm-start qz, vz with one predictor call so they're consistent at t=0.
         q_init_pred, v_init_pred, _ = approximate_predictor(
             q, v, u_buffer,
             h=h_pred,
@@ -371,7 +400,7 @@ def make_simulator(robot, cfg, ref):
             # Control from internal state
             tau_cmd = hybrid_feedback_tau(qz, vz, t)
 
-            # Apply delay buffer
+            # FIFO delay: push new command, pop the D-step-old torque that's applied now.
             u_buffer.append(tau_cmd.copy())
             tau_applied = u_buffer.pop(0)
 
@@ -400,7 +429,7 @@ def make_simulator(robot, cfg, ref):
                 tau_apps.append(tau_applied.copy())
                 u_hist_log.append(np.array(u_buffer, dtype=float).copy())
                 q_des_now_log.append(q_des(t))
-                q_des_future_log.append(q_des(t + D))
+                q_des_future_log.append(q_des(t + D))  # desired pos the controller is targeting
                 picard_log.append(picard_used)
                 predictor_time_log.append(predictor_elapsed)
                 step_time_log.append(step_elapsed)
@@ -485,19 +514,15 @@ def simulate_with_predictor(
     max_sample_h=None,
     min_sample_h=None,
 ):
-    """
-    predictor must be a dict with:
-        predictor["kind"] in {"single_step", "numerical", "multistep"}
-        predictor["predict"] = callable
+    """Simulate the closed-loop system using a pluggable predictor.
 
-    Interfaces:
-    ----------
-    kind == "single_step" or "numerical":
-        predict(q_in, v_in, u_hist) -> (q_pred, v_pred)
+    Runs the delayed-feedback loop and resets the hybrid internal state at
+    each sampling instant via predictor["predict"]. Supports single-step,
+    numerical, and multistep predictor kinds and optional random sample gaps.
 
-    kind == "multistep":
-        predict(q_in, v_in, u_hist) -> z_traj
-        where z_traj.shape == (sample_steps + 1, nq + nv)
+    Inputs:  sim, robot, ref, cfg bundles; predictor dict with "kind" and
+             "predict" callable; initial state, noise std devs, rng, sampling params
+    Returns: dict of logged trajectory arrays
     """
     model = robot["model"]
     data = robot["data"]
@@ -545,9 +570,10 @@ def simulate_with_predictor(
     def draw_next_gap_steps():
         if not random_sampling:
             return sample_steps
+        # upper bound is exclusive, so +1 to include max_sample_steps
         return int(rng.integers(min_sample_steps, max_sample_steps + 1))
 
-    next_sample_step = 0
+    next_sample_step = 0  # first sample happens at step 0
 
     # ---------------------------------------------------------
     # Initial state
@@ -562,6 +588,7 @@ def simulate_with_predictor(
     else:
         v = v0.copy()
 
+    # Pre-fill delay buffer with gravity-hold torque (same convention as simulate()).
     tau_hold = pin.rnea(model, data, q, v, np.zeros(nv))
     tau_hold = clip_tau(tau_hold)
 
@@ -573,10 +600,11 @@ def simulate_with_predictor(
     qz = q.copy()
     vz = v.copy()
 
-    # for multistep predictors
+    # Current multistep trajectory and index into it.
     z_traj_active = None
     z_traj_index = 0
 
+    # Warm-start the internal state at t=0.
     if predictor_kind in {"single_step", "numerical"}:
         qz, vz = predictor_call(q, v, np.array(u_buffer))
     elif predictor_kind == "multistep":
@@ -692,7 +720,7 @@ def simulate_with_predictor(
             qz, vz = controller_state_step_rk4(qz, vz, t, dt)
 
         elif predictor_kind == "multistep":
-            # advance along the predicted trajectory
+            # Advance along the pre-computed trajectory; clamp if sample is late.
             z_traj_index = min(z_traj_index + 1, sample_steps)
             z_next = z_traj_active[z_traj_index]
             qz = z_next[:nq].copy()
@@ -712,7 +740,7 @@ def simulate_with_predictor(
         tau_apps.append(tau_applied.copy())
         u_hist_log.append(np.array(u_buffer, dtype=float).copy())
         q_des_now_log.append(ref["q_des"](t))
-        q_des_future_log.append(ref["q_des"](t + D))
+        q_des_future_log.append(ref["q_des"](t + D))  # desired pos the controller is targeting
         sample_flag_log.append(did_sample)
 
     return {

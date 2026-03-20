@@ -1,12 +1,19 @@
+"""Generate the single-step predictor training dataset (Case 1)."""
+
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.case1_dataset_builder import build_predictor_dataset_parallel, save_predictor_dataset, validate_dataset_shapes, validate_dataset_labels
+from src.case1_dataset_builder import (
+    build_predictor_dataset_parallel,
+    save_predictor_dataset,
+    validate_dataset_shapes,
+    validate_dataset_labels,
+)
 from src.config import make_config
-from src.simulate import build_robot, make_reference, make_simulator    
+from src.simulate import build_robot, make_reference, make_simulator
 
 cfg = make_config(
     urdf="xarm6.urdf",

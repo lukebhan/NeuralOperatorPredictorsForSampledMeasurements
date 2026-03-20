@@ -1,3 +1,5 @@
+"""Configuration helpers for simulation and predictor experiments."""
+
 import numpy as np
 
 def make_config(
@@ -16,6 +18,14 @@ def make_config(
     max_picard_iters=20,
     inner_predictor_discretization_steps=1,
 ):
+    """Build and validate an experiment configuration dictionary.
+
+    Computes derived quantities (steps, delay_steps, sample_steps, h_pred)
+    and asserts that D and Ts are exact integer multiples of dt.
+
+    Inputs:  all physical and control parameters (see argument defaults above)
+    Returns: cfg dict consumed by the simulator and dataset builders
+    """
     steps = int(T / dt)
     delay_steps = int(round(D / dt))
     sample_steps = int(round(Ts / dt))

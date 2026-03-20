@@ -1,16 +1,17 @@
+"""Run one simulation example and plot results."""
+
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.config import make_config
-from src.simulate import make_simulator, build_robot, make_reference
-from src.plot import plot_results
-
 import numpy as np
 import pinocchio as pin
-import matplotlib.pyplot as plt
+
+from src.config import make_config
+from src.simulate import build_robot, make_reference, make_simulator
+from src.plot import plot_results
 
 cfg = make_config(
     urdf="xarm6.urdf",
@@ -34,7 +35,7 @@ model = robot["model"]
 q0 = pin.integrate(
     model,
     pin.neutral(model),
-    0.15 * rng.standard_normal(robot["nq"])
+    0.15 * rng.standard_normal(robot["nq"]),
 )
 
 v0 = 0.1 * rng.standard_normal(robot["nv"])
@@ -44,6 +45,8 @@ out = sim["simulate"](
     v0=v0,
     q_meas_noise_std=0.01,
     v_meas_noise_std=0.01,
-    use_noisy_measurement_for_reset=True, verbose=True)
+    use_noisy_measurement_for_reset=True,
+    verbose=True,
+)
 
 plot_results(out, nq=robot["nq"], nv=robot["nv"])

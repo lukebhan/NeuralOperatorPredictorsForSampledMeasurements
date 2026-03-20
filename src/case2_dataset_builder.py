@@ -1,3 +1,5 @@
+"""Dataset builder for the multistep predictor model (Case 2)."""
+
 import numpy as np
 import os
 import time
@@ -7,6 +9,15 @@ from src.simulate import build_robot, make_reference, make_simulator, sample_ini
 from src.case1_dataset_builder import exact_predictor_label
 
 def exact_multistep_predictor_label(sim, cfg, q_meas, v_meas, u_hist, t0=0.0):
+    """Compute the exact multistep predictor label for one sample.
+
+    Applies the single-step predictor then rolls out the hybrid controller
+    for sample_steps steps to build the full trajectory label.
+
+    Inputs:  sim bundle, cfg dict, q_meas (nq,), v_meas (nv,),
+             u_hist (delay_steps, nv), t0 simulation time float
+    Returns: z_traj ndarray (sample_steps+1, nq+nv)
+    """
     pack_state = sim["pack_state"]
     controller_state_step_rk4 = sim["controller_state_step_rk4"]
 
@@ -37,6 +48,13 @@ def extract_multistep_predictor_samples(
     verbose=False,
     log_interval=100,
 ):
+    """Extract supervised multistep (X, U, Y) samples from one simulation rollout.
+
+    Inputs:  out dict from simulate, sim bundle, cfg dict, stride int,
+             flatten_target bool
+    Returns: X (N, nq+nv), U (N, delay_steps, nv),
+             Y (N, sample_steps+1, nq+nv) or flattened if flatten_target
+    """
     t_log = out["t"]
     q_meas = out["q_meas"]
     v_meas = out["v_meas"]
@@ -115,6 +133,7 @@ def extract_multistep_predictor_samples(
     return X, U, Y
 
 def validate_multistep_dataset_shapes(dataset, robot, cfg):
+    """Assert that dataset arrays have the expected shapes and print a summary."""
     nq = robot["nq"]
     nv = robot["nv"]
     delay_steps = cfg["delay_steps"]
@@ -149,14 +168,20 @@ def validate_multistep_dataset_labels(
     n_checks=20,
     seed=0,
 ):
+    """Spot-check stored trajectory labels by recomputing them for random samples.
+
+    Inputs:  dataset dict (needs "t" key for time per sample), sim bundle, cfg dict,
+             n_checks int, seed int
+    Returns: errors array of Frobenius norms between stored and recomputed trajectories
+    """
     rng = np.random.default_rng(seed)
 
     X = dataset["state"]
     U = dataset["u_hist"]
     Y = dataset["predictor_traj"]
-    T = dataset["t"]              # <-- time stored per sample
+    T = dataset["t"]              # simulation time per sample (for the time-varying reference)
 
-    nq = X.shape[1] // 2
+    nq = X.shape[1] // 2  # state = [q, v] with nq == nv assumed
 
     idxs = rng.choice(len(X), size=min(n_checks, len(X)), replace=False)
 
@@ -166,7 +191,7 @@ def validate_multistep_dataset_labels(
         x = X[idx]
         u_hist = U[idx]
         y_stored = Y[idx]
-        t0 = T[idx]               # <-- correct time
+        t0 = T[idx]               # recorded time for the time-varying reference rollout
 
         q_in = x[:nq]
         v_in = x[nq:]
@@ -177,7 +202,7 @@ def validate_multistep_dataset_labels(
             q_in,
             v_in,
             u_hist,
-            t0=t0,                # <-- fixed
+            t0=t0,
         )
 
         err = np.linalg.norm(y_recomputed - y_stored)
@@ -192,7 +217,7 @@ def validate_multistep_dataset_labels(
     return errors
 
 def save_multistep_predictor_dataset(dataset, cfg, path):
-
+    """Save the multistep dataset to a compressed .npz file."""
     np.savez_compressed(
         path,
         state=dataset["state"],
@@ -202,8 +227,12 @@ def save_multistep_predictor_dataset(dataset, cfg, path):
     )
 
 def _run_one_multistep_rollout(args):
-    """
-    One multistep rollout executed in one worker process.
+    """Run one simulation rollout in a worker process and return extracted samples.
+
+    Inputs:  args tuple (rollout_idx, seed, cfg, stride, flatten_target,
+             q_meas_noise_std, v_meas_noise_std, use_noisy_measurement_for_reset)
+    Returns: result dict with "rollout_idx", "seed", "num_samples",
+             "state", "u_hist", "predictor_traj"
     """
     (
         rollout_idx,
@@ -280,10 +309,13 @@ def build_multistep_predictor_dataset_parallel(
     use_noisy_measurement_for_reset=True,
     verbose=True,
 ):
-    import os
-    import time
-    from concurrent.futures import ProcessPoolExecutor, as_completed
+    """Build a full multistep supervised dataset in parallel across multiple rollouts.
 
+    Inputs:  cfg dict, n_rollouts, stride, seed, max_workers, flatten_target,
+             q_meas_noise_std, v_meas_noise_std, use_noisy_measurement_for_reset, verbose
+    Returns: dataset dict with "state", "u_hist", "predictor_traj",
+             "rollout_seeds", "samples_per_rollout", "config"
+    """
     if max_workers is None:
         max_workers = os.cpu_count() or 1
 
@@ -303,6 +335,7 @@ def build_multistep_predictor_dataset_parallel(
 
     master_rng = np.random.default_rng(seed)
 
+    # Generate one independent 32-bit seed per rollout for reproducibility.
     rollout_seeds = master_rng.integers(
         0,
         np.iinfo(np.uint32).max,
@@ -334,6 +367,7 @@ def build_multistep_predictor_dataset_parallel(
 
         completed = 0
 
+        # as_completed yields in finish order; use rollout_idx to slot results correctly.
         for fut in as_completed(futures):
             result = fut.result()
 
@@ -365,6 +399,7 @@ def build_multistep_predictor_dataset_parallel(
     X_all = np.vstack([r["state"] for r in nonempty])
     U_all = np.vstack([r["u_hist"] for r in nonempty])
 
+    # 3D trajectories need concatenate; 2D flat targets can use vstack.
     if flatten_target:
         Y_all = np.vstack([r["predictor_traj"] for r in nonempty])
     else:

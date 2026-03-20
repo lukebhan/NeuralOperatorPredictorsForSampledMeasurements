@@ -1,3 +1,5 @@
+"""Training utilities for the multistep predictor model (Case 2)."""
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,6 +10,12 @@ import time
 import matplotlib.pyplot as plt
 
 def build_multistep_fno_dataset(dataset):
+    """Tile the state across the delay grid and concatenate with u_hist to form FNO inputs.
+
+    Inputs:  dataset dict with "state" (N, state_dim), "u_hist" (N, delay_steps, nv),
+             "predictor_traj" (N, horizon, state_dim)
+    Returns: X (N, delay_steps, state_dim+nv), Y (N, horizon, state_dim)
+    """
     state = dataset["state"]                   # (N, state_dim)
     u_hist = dataset["u_hist"]                 # (N, delay_steps, control_dim)
     target = dataset["predictor_traj"]         # (N, horizon, state_dim)
@@ -20,6 +28,11 @@ def build_multistep_fno_dataset(dataset):
     return X, target
 
 def fit_multistep_normalizers(X_train, Y_train, eps=1e-8):
+    """Compute per-channel mean and std for normalizing multistep inputs and trajectories.
+
+    Inputs:  X_train (N, delay_steps, channels), Y_train (N, horizon, state_dim), eps float
+    Returns: stats dict with "x_mean", "x_std", "y_mean", "y_std"
+    """
     x_mean = X_train.mean(axis=(0, 1), keepdims=True)
     x_std = X_train.std(axis=(0, 1), keepdims=True) + eps
 
@@ -36,12 +49,18 @@ def fit_multistep_normalizers(X_train, Y_train, eps=1e-8):
     return stats
 
 def normalize_multistep_dataset(X, Y, stats):
+    """Normalize X and Y using the provided stats dict.
+
+    Inputs:  X, Y arrays; stats dict from fit_multistep_normalizers
+    Returns: (Xn, Yn) normalized arrays
+    """
     Xn = (X - stats["x_mean"]) / stats["x_std"]
     Yn = (Y - stats["y_mean"]) / stats["y_std"]
 
     return Xn, Yn
 
 def denormalize_multistep_predictions(Yn, stats):
+    """Invert output normalization to recover trajectory predictions in original units."""
     return Yn * stats["y_std"] + stats["y_mean"]
 
 def make_multistep_dataloaders(
@@ -51,7 +70,11 @@ def make_multistep_dataloaders(
     val_fraction=0.2,
     seed=0,
 ):
+    """Split data, fit normalizers, and return train/val DataLoaders.
 
+    Inputs:  X, Y arrays; batch_size, val_fraction, seed
+    Returns: (train_loader, val_loader, stats)
+    """
     X_train, X_val, Y_train, Y_val = train_test_split(
         X,
         Y,
@@ -85,6 +108,7 @@ def make_multistep_dataloaders(
     return train_loader, val_loader, stats
 
 def train_multistep_one_epoch(model, loader, optimizer, device):
+    """Run one training epoch and return the mean MSE loss."""
     model.train()
     loss_fn = nn.MSELoss()
 
@@ -103,6 +127,7 @@ def train_multistep_one_epoch(model, loader, optimizer, device):
         optimizer.step()
 
         batch_size = xb.shape[0]
+        # Accumulate sum-of-losses so we get a sample-weighted average.
         total_loss += loss.item() * batch_size
         total_count += batch_size
 
@@ -111,6 +136,7 @@ def train_multistep_one_epoch(model, loader, optimizer, device):
 
 @torch.no_grad()
 def evaluate_multistep_model(model, loader, device):
+    """Evaluate the model on a DataLoader and return the mean MSE loss."""
     model.eval()
     loss_fn = nn.MSELoss()
 
@@ -141,6 +167,11 @@ def train_multistep_model(
     weight_decay=1e-6,
     save_path="multistep_predictor_fno.pt",
 ):
+    """Train with Adam + ReduceLROnPlateau, saving the best checkpoint.
+
+    Inputs:  model, train_loader, val_loader, device, epochs, lr, weight_decay, save_path
+    Returns: (model with best weights, history dict with "train_loss" / "val_loss")
+    """
     model = model.to(device)
 
     optimizer = torch.optim.Adam(
@@ -208,6 +239,7 @@ def train_multistep_model(
             f"time {epoch_time:.2f}s"
         )
 
+    # Strip internal _metadata key before loading (see case1_trainer for rationale).
     clean_state = {k: v for k, v in best_state.items()}
     clean_state.pop("_metadata", None)
 
@@ -216,6 +248,11 @@ def train_multistep_model(
 
 
 def load_trained_multistep_model(model, checkpoint_path, device):
+    """Load a checkpoint into model and set it to eval mode.
+
+    Inputs:  model, checkpoint_path string, device
+    Returns: (model in eval mode, full checkpoint dict)
+    """
     checkpoint = torch.load(
         checkpoint_path,
         map_location=device,
@@ -233,6 +270,7 @@ def load_trained_multistep_model(model, checkpoint_path, device):
 
 
 def plot_multistep_training_history(history):
+    """Plot training and validation MSE loss curves on a log scale."""
     plt.figure(figsize=(7, 4))
     plt.plot(history["train_loss"], label="train")
     plt.plot(history["val_loss"], label="val")

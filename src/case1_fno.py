@@ -1,3 +1,5 @@
+"""Single-step predictor neural network (FNO-based, Case 1)."""
+
 import torch.nn as nn
 import torch
 from neuralop.models import FNO1d
@@ -12,6 +14,10 @@ class PredictorFNO(nn.Module):
         fno_output_channel,
         output_dim,
     ):
+        """
+        Args: hidden_size, num_layers, modes (Fourier), input_channel (state+control),
+              fno_output_channel (trunk width / attention hidden size), output_dim (nq+nv)
+        """
         super().__init__()
 
         self.fno = FNO1d(

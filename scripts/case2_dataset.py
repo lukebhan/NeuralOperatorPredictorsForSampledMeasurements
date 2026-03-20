@@ -1,11 +1,18 @@
+"""Generate the multistep predictor training dataset (Case 2)."""
+
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.case2_dataset_builder import build_multistep_predictor_dataset_parallel, save_multistep_predictor_dataset, validate_multistep_dataset_labels, validate_multistep_dataset_shapes
-from src.simulate import build_robot, make_reference, make_simulator    
+from src.case2_dataset_builder import (
+    build_multistep_predictor_dataset_parallel,
+    save_multistep_predictor_dataset,
+    validate_multistep_dataset_labels,
+    validate_multistep_dataset_shapes,
+)
+from src.simulate import build_robot, make_reference, make_simulator
 from src.config import make_config
 
 cfg = make_config(

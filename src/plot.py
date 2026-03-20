@@ -1,7 +1,14 @@
+"""Plotting helpers for simulation rollouts and predictor comparisons."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 def plot_results(out, nq=None, nv=None):
+    """Generate diagnostic plots from a simulation rollout.
+
+    Inputs:  out dict from sim["simulate"], optional nq / nv (inferred if None)
+    Outputs: displays figures via plt.show()
+    """
     t = out["t"]
     q = out["q"]
     qz = out["qz"]
