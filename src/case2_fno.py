@@ -2,7 +2,7 @@
 
 import torch.nn as nn
 import torch
-from neuralop.models import FNO1d
+from neuralop.models import FNO
 import torch.nn.functional as F
 
 class MultistepPredictorFNO(nn.Module):
@@ -25,8 +25,8 @@ class MultistepPredictorFNO(nn.Module):
 
         self.output_horizon = output_horizon
 
-        self.fno = FNO1d(
-            n_modes_height=modes,
+        self.fno = FNO(
+            n_modes=modes,
             n_layers=num_layers,
             hidden_channels=hidden_size,
             in_channels=input_channel,

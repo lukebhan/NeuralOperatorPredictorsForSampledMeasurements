@@ -12,19 +12,10 @@ from src.case1_dataset_builder import (
     validate_dataset_shapes,
     validate_dataset_labels,
 )
-from src.config import make_config
+from src.config import load_config
 from src.simulate import build_robot, make_reference, make_simulator
 
-cfg = make_config(
-    urdf="xarm6.urdf",
-    dt=0.001,
-    T=20.0,
-    D=0.2,
-    Ts=0.05,
-    predictor_tolerance=1e-8,
-    max_picard_iters=50,
-    inner_predictor_discretization_steps=4,
-)
+cfg = load_config()
 
 
 dataset = build_predictor_dataset_parallel(

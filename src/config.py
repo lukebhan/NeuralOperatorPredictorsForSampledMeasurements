@@ -1,6 +1,22 @@
 """Configuration helpers for simulation and predictor experiments."""
 
 import numpy as np
+import yaml
+from pathlib import Path
+
+
+def load_config(yaml_path=None):
+    """Load experiment config from a YAML file and return a validated cfg dict.
+
+    Inputs:  yaml_path string or Path (defaults to config/experiment.yaml)
+    Returns: cfg dict consumed by the simulator and dataset builders
+    """
+    if yaml_path is None:
+        yaml_path = Path(__file__).resolve().parents[1] / "config" / "experiment.yaml"
+    with open(yaml_path, "r") as f:
+        params = yaml.safe_load(f)
+    return make_config(**params)
+
 
 def make_config(
     urdf="xarm6.urdf",

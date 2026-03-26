@@ -56,7 +56,7 @@ def extract_multistep_predictor_samples(
 
     Inputs:  out dict from simulate, sim bundle, cfg dict, stride int,
              flatten_target bool
-    Returns: X (N, nq+nv), U (N, delay_steps, nv),
+    Returns: X (N, nq+nv), U (N, delay_steps, nv), T (N,),
              Y (N, sample_steps+1, nq+nv) or flattened if flatten_target
     """
     t_log = out["t"]
@@ -80,6 +80,7 @@ def extract_multistep_predictor_samples(
 
     X = []
     U = []
+    T = []
     Y = []
 
     start = time.perf_counter()
@@ -105,6 +106,7 @@ def extract_multistep_predictor_samples(
 
         X.append(pack_state(q_in, v_in))
         U.append(np.asarray(u_hist, dtype=float).copy())
+        T.append(float(t_in))
         Y.append(z_traj)
 
         kept += 1
@@ -118,6 +120,7 @@ def extract_multistep_predictor_samples(
 
     X = np.asarray(X)
     U = np.asarray(U)
+    T = np.asarray(T)
     Y = np.asarray(Y)
 
     if flatten_target:
@@ -134,7 +137,7 @@ def extract_multistep_predictor_samples(
             f"time={elapsed:.2f}s"
         )
 
-    return X, U, Y
+    return X, U, T, Y
 
 def validate_multistep_dataset_shapes(dataset, robot, cfg):
     """Assert that dataset arrays have the expected shapes and print a summary."""
@@ -145,14 +148,18 @@ def validate_multistep_dataset_shapes(dataset, robot, cfg):
 
     X = dataset["state"]
     U = dataset["u_hist"]
+    T = dataset["t"]
+    print(T.shape)
     Y = dataset["predictor_traj"]
 
     print("state shape          :", X.shape)
     print("u_hist shape         :", U.shape)
+    print("t shape              :", T.shape)
     print("predictor_traj shape :", Y.shape)
 
     assert X.ndim == 2
     assert U.ndim == 3
+    assert T.ndim == 1
     assert Y.ndim == 3
 
     assert X.shape[1] == nq + nv, f"Expected state dim {nq+nv}, got {X.shape[1]}"
@@ -161,7 +168,7 @@ def validate_multistep_dataset_shapes(dataset, robot, cfg):
     assert Y.shape[1] == sample_steps + 1, f"Expected horizon length {sample_steps+1}, got {Y.shape[1]}"
     assert Y.shape[2] == nq + nv, f"Expected predictor dim {nq+nv}, got {Y.shape[2]}"
 
-    assert X.shape[0] == U.shape[0] == Y.shape[0], "Mismatched number of samples"
+    assert X.shape[0] == U.shape[0] == T.shape[0] == Y.shape[0], "Mismatched number of samples"
 
     print("Shape checks passed.")
 
@@ -274,7 +281,7 @@ def _run_one_multistep_rollout(args):
 
     print(f"[rollout {rollout_idx:02d}] starting multistep sample extraction")
 
-    X, U, Y = extract_multistep_predictor_samples(
+    X, U, T, Y = extract_multistep_predictor_samples(
         out,
         sim,
         cfg,
@@ -299,6 +306,7 @@ def _run_one_multistep_rollout(args):
         "state": X,
         "u_hist": U,
         "predictor_traj": Y,
+        "t": T
     }
 
 def build_multistep_predictor_dataset_parallel(
@@ -400,6 +408,7 @@ def build_multistep_predictor_dataset_parallel(
     if len(nonempty) == 0:
         raise RuntimeError("No rollout produced any multistep samples.")
 
+    T_all = np.vstack([r["t"] for r in nonempty]).ravel()
     X_all = np.vstack([r["state"] for r in nonempty])
     U_all = np.vstack([r["u_hist"] for r in nonempty])
 
@@ -437,6 +446,7 @@ def build_multistep_predictor_dataset_parallel(
         "state": X_all,
         "u_hist": U_all,
         "predictor_traj": Y_all,
+        "t": T_all, 
         "rollout_seeds": rollout_seeds.copy(),
         "samples_per_rollout": samples_per_rollout,
         "config": cfg,

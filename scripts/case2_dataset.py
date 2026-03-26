@@ -13,26 +13,16 @@ from src.case2_dataset_builder import (
     validate_multistep_dataset_shapes,
 )
 from src.simulate import build_robot, make_reference, make_simulator
-from src.config import make_config
+from src.config import load_config
 
-cfg = make_config(
-    urdf="xarm6.urdf",
-    dt=0.001,
-    T=20.0,
-    D=0.2,
-    Ts=0.05,
-    predictor_tolerance=1e-8,
-    max_picard_iters=50,
-    inner_predictor_discretization_steps=4,
-)
-
+cfg = load_config()
 
 dataset = build_multistep_predictor_dataset_parallel(
     cfg,
-    n_rollouts=40,
+    n_rollouts=20,
     stride=20,
     seed=0,
-    max_workers=8,
+    max_workers=10,
 )
 
 save_multistep_predictor_dataset(dataset, cfg, "dataset/multistep_predictor_dataset_small.npz")
