@@ -1,6 +1,8 @@
+"""FNO model for Case 1: uniform sampling, sampling-horizon prediction operator (M̂)."""
+
 import torch.nn as nn
 import torch
-from neuralop.models import FNO1d
+from neuralop.models import FNO
 
 class PredictorFNO(nn.Module):
     def __init__(
@@ -12,10 +14,14 @@ class PredictorFNO(nn.Module):
         fno_output_channel,
         output_dim,
     ):
+        """
+        Args: hidden_size, num_layers, modes (Fourier), input_channel (state+control),
+              fno_output_channel (trunk width / attention hidden size), output_dim (nq+nv)
+        """
         super().__init__()
 
-        self.fno = FNO1d(
-            n_modes_height=modes,
+        self.fno = FNO(
+            n_modes=modes,
             n_layers=num_layers,
             hidden_channels=hidden_size,
             in_channels=input_channel,

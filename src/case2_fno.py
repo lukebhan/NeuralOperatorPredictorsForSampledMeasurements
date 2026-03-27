@@ -1,6 +1,8 @@
+"""FNO model for Case 2: bounded sampling, predictor approximation operator (P̂)."""
+
 import torch.nn as nn
 import torch
-from neuralop.models import FNO1d
+from neuralop.models import FNO
 import torch.nn.functional as F
 
 class MultistepPredictorFNO(nn.Module):
@@ -14,12 +16,17 @@ class MultistepPredictorFNO(nn.Module):
         output_dim,
         output_horizon,
     ):
+        """
+        Args: hidden_size, num_layers, modes (Fourier), input_channel (state+control),
+              fno_output_channel (trunk/head width), output_dim (nq+nv),
+              output_horizon (sample_steps+1)
+        """
         super().__init__()
 
         self.output_horizon = output_horizon
 
-        self.fno = FNO1d(
-            n_modes_height=modes,
+        self.fno = FNO(
+            n_modes=modes,
             n_layers=num_layers,
             hidden_channels=hidden_size,
             in_channels=input_channel,
@@ -42,7 +49,7 @@ class MultistepPredictorFNO(nn.Module):
         # FNO1d expects (batch, channels, grid)
         y = self.fno(x.transpose(1, 2))   # (B, C, G_in)
 
-        # Resize latent grid to desired multistep horizon
+        # Resize latent grid to the desired sampling horizon length
         if y.shape[-1] != self.output_horizon:
             y = F.interpolate(
                 y,

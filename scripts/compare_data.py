@@ -1,9 +1,11 @@
+"""Compare Case 2 (predictor approximation) vs Case 1 (sampling-horizon prediction) datasets (visual diagnostics)."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Load datasets
 data_fixed = np.load("dataset/multistep_predictor_dataset_small_fixed.npz")
-data_multistep  = np.load("dataset/multistep_predictor_dataset_small.npz")
+data_multistep = np.load("dataset/multistep_predictor_dataset_small.npz")
 
 # Inspect keys
 print("fixed keys:", data_fixed.files)

@@ -1,3 +1,9 @@
+"""Dataset builder for Case 1: uniform sampling, sampling-horizon prediction operator.
+
+Generates supervised training pairs (measurement, input history) -> predicted
+state trajectory over the sampling horizon, using high-accuracy Picard labels.
+"""
+
 import numpy as np
 import os
 import time
@@ -6,6 +12,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from src.simulate import build_robot, make_reference, make_simulator, sample_initial_state
 
 def exact_predictor_label(sim, cfg, q_meas, v_meas, u_hist):
+    """Run the Picard predictor with tight tolerances to produce a high-accuracy label.
+
+    Inputs:  sim bundle, cfg dict, q_meas (nq,), v_meas (nv,), u_hist (delay_steps, nv)
+    Returns: (q_pred, v_pred) ndarrays
+    """
     q_pred, v_pred, _ = sim["approximate_predictor"](
         q_meas,
         v_meas,
@@ -18,6 +29,11 @@ def exact_predictor_label(sim, cfg, q_meas, v_meas, u_hist):
     return q_pred, v_pred
 
 def extract_predictor_samples(out, sim, cfg, stride=1, rollout_id=None, verbose=False):
+    """Extract supervised (X, U, Y) samples from one simulation rollout.
+
+    Inputs:  out dict from simulate, sim bundle, cfg dict, stride int
+    Returns: X (N, nq+nv), U (N, delay_steps, nv), Y (N, nq+nv)
+    """
 
     q_meas = out["q_meas"]
     v_meas = out["v_meas"]
@@ -58,7 +74,7 @@ def extract_predictor_samples(out, sim, cfg, stride=1, rollout_id=None, verbose=
         U.append(u_input)
         Y.append(np.concatenate([q_pred, v_pred]))
 
-        # progress logging every 500 samples
+        # progress logging every 100 samples
         if verbose and (i + 1) % 100 == 0:
             prefix = f"[rollout {rollout_id:02d}] " if rollout_id is not None else ""
             print(
@@ -79,6 +95,7 @@ def extract_predictor_samples(out, sim, cfg, stride=1, rollout_id=None, verbose=
     return np.array(X), np.array(U), np.array(Y)
 
 def validate_dataset_shapes(dataset, robot, cfg):
+    """Assert that dataset arrays have the expected shapes and print a summary."""
     nq = robot["nq"]
     nv = robot["nv"]
     delay_steps = cfg["delay_steps"]
@@ -114,13 +131,18 @@ def validate_dataset_labels(
     max_iters=100,
     M=8,
 ):
+    """Spot-check stored labels by recomputing the predictor for random samples.
+
+    Inputs:  dataset dict, sim bundle, cfg dict, n_checks, seed, tol, max_iters, M
+    Returns: errors array of L2 norms between stored and recomputed labels
+    """
     rng = np.random.default_rng(seed)
 
     X = dataset["state"]
     U = dataset["u_hist"]
     Y = dataset["predictor"]
 
-    nq = X.shape[1] // 2
+    nq = X.shape[1] // 2  # state = [q, v] with nq == nv assumed
 
     idxs = rng.choice(len(X), size=min(n_checks, len(X)), replace=False)
 
@@ -155,9 +177,9 @@ def validate_dataset_labels(
     print(f"max error : {errors.max():.3e}")
 
     return errors
-    
-def save_predictor_dataset(dataset, cfg, path):
 
+def save_predictor_dataset(dataset, cfg, path):
+    """Save the Case 2 predictor approximation dataset to a compressed .npz file."""
     np.savez_compressed(
         path,
         state=dataset["state"],
@@ -168,8 +190,10 @@ def save_predictor_dataset(dataset, cfg, path):
 
 
 def _run_one_rollout(args):
-    """
-    One rollout executed in one worker process.
+    """Run one simulation rollout in a worker process and extract samples.
+
+    Inputs:  args tuple (rollout_idx, seed, cfg, stride, noise params, reset flag)
+    Returns: dict with "rollout_idx", "seed", "num_samples", "state", "u_hist", "predictor"
     """
     (
         rollout_idx,
@@ -198,15 +222,15 @@ def _run_one_rollout(args):
         rng=rng,
         verbose=False,
         log_every_step=True,
-    
+
         rollout_id=rollout_idx,
         progress_interval=5000,
     )
 
     extract_start = time.perf_counter()
-    
+
     print(f"[rollout {rollout_idx:02d}] starting sample extraction")
-    
+
     X, U, Y = extract_predictor_samples(
         out,
         sim,
@@ -214,9 +238,9 @@ def _run_one_rollout(args):
         stride,
         rollout_id=rollout_idx,
         verbose=True,
-    )    
+    )
     extract_elapsed = time.perf_counter() - extract_start
-    
+
     print(
         f"[rollout {rollout_idx:02d}] finished extraction | "
         f"samples kept: {len(X)} | "
@@ -243,6 +267,12 @@ def build_predictor_dataset_parallel(
     use_noisy_measurement_for_reset=True,
     verbose=True,
 ):
+    """Build the full Case 2 predictor approximation dataset using parallel rollouts.
+
+    Inputs:  cfg dict, n_rollouts, stride, seed, max_workers, noise params, verbose
+    Returns: dataset dict with "state", "u_hist", "predictor",
+             "rollout_seeds", "samples_per_rollout", "config"
+    """
     if max_workers is None:
         max_workers = os.cpu_count() or 1
 
@@ -261,6 +291,7 @@ def build_predictor_dataset_parallel(
 
     master_rng = np.random.default_rng(seed)
 
+    # One reproducible 32-bit seed per rollout for independent random streams.
     rollout_seeds = master_rng.integers(
         0,
         np.iinfo(np.uint32).max,
@@ -292,6 +323,7 @@ def build_predictor_dataset_parallel(
 
         completed = 0
 
+        # as_completed yields in finish order; slot by rollout_idx to stay aligned.
         for fut in as_completed(futures):
 
             result = fut.result()

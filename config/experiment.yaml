@@ -1,0 +1,24 @@
+urdf: xarm6.urdf
+
+# Timing
+dt: 0.001       # simulation timestep (s)
+T: 20.0         # simulation duration (s)
+D: 0.2          # input delay (s)
+Ts: 0.05        # sampling interval (s) — fixed for Case 1, upper bound for Case 2
+
+# Actuator
+tau_max: 60.0   # torque saturation (Nm)
+noise_std: 0.0  # plant input noise std
+
+# Controller gains
+Kp_val: 40.0
+Kd_val: 14.0
+
+# Reference trajectory
+traj_w: 0.6     # frequency (rad/s)
+traj_amp: 0.2   # amplitude (rad)
+
+# Predictor (numerical Picard)
+predictor_tolerance: 1.0e-8
+max_picard_iters: 50
+inner_predictor_discretization_steps: 4

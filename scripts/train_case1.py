@@ -1,19 +1,21 @@
+"""Train the FNO for Case 1: uniform sampling, sampling-horizon prediction operator."""
+
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.case1_fno import PredictorFNO
-from src.case1_trainer import build_fno_dataset, make_dataloaders, train_model, plot_training_history
-
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
-import copy
+
+from src.case1_fno import PredictorFNO
+from src.case1_trainer import (
+    build_fno_dataset,
+    make_dataloaders,
+    plot_training_history,
+    train_model,
+)
 
 data_singlestep = np.load("dataset/singlestep_predictor_dataset_small.npz")
 for key in data_singlestep.files:
@@ -34,7 +36,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PredictorFNO(
     hidden_size=64,
     num_layers=4,
-    modes=16,
+    modes=[16],
     input_channel=X.shape[2],
     fno_output_channel=128,
     output_dim=Y.shape[1],
