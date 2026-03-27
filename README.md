@@ -1,6 +1,15 @@
+<div align="center">
+  <a href="https://ccsd.ucsd.edu/home">
+    <img align="left" src="media/CCSD.png" width="400" height="60" alt="ccsd">
+  </a>
+  <a href="https://ucsd.edu/">
+    <img align="right" src="media/ucsd.png" width="260" alt="ucsd">
+  </a>
+</div>
+
 # Sampling-Horizon Neural Operator Predictors for Nonlinear Control under Delayed Inputs
 
-Official implementation of **"Sampling-Horizon Neural Operator Predictors for Nonlinear Control under Delayed Inputs"** by Luke Bhan, Peter Quawas, Miroslav Krstic, and Yuanyuan Shi.
+![Main results: joint tracking, measurement schedule, state error, and prediction error across Numerical, Case 1, and Case 2 predictors](media/mainfig.png)
 
 ---
 
@@ -10,7 +19,6 @@ This repository implements two neural operator predictor-feedback designs for no
 
 Both designs approximate the predictor operator offline using an FNO and deploy it online for fast inference, achieving a **25× computational speedup** over the numerical baseline.
 
-![Main results: joint tracking, measurement schedule, state error, and prediction error across Numerical, Case 1, and Case 2 predictors](media/mainfig.png)
 
 Two designs are implemented, corresponding to the two cases in the paper:
 
@@ -25,12 +33,12 @@ Two designs are implemented, corresponding to the two cases in the paper:
 ```bash
 git clone https://github.com/lukebhan/NeuralOperatorPredictorsForSampledMeasurements.git
 cd NeuralOperatorPredictorsForSampledMeasurements
-python -m venv nopfno
-source nopfno/bin/activate   # on Windows: nopfno\Scripts\activate
+python -m venv NeuralOperatorsPredictorsForSamplesMeasurementsEnv
+source NeuralOperatorsPredictorsForSamplesMeasurementsEnv/bin/activate   # on Windows: NeuralOperatorsPredictorsForSamplesMeasurementsEnv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Dependencies: `pinocchio`, `neuralop`, `torch`, `numpy`, `scikit-learn`, `matplotlib`.
+Dependencies: `pinocchio`, `neuralop`, `torch`, `numpy`, `scikit-learn`, `matplotlib`, `jupyter`. 
 
 ---
 
@@ -138,12 +146,7 @@ NeuralOperatorPredictorsForSampledMeasurements/
 
 ## Citation
 
-```bibtex
-@article{bhan2026sampling,
-  title  = {Sampling-Horizon Neural Operator Predictors for Nonlinear Control under Delayed Inputs},
-  author = {Luke Bhan and Peter Quawas and Miroslav Krstic and Yuanyuan Shi},
-  year   = {2026},
-}
+```
 ```
 
 ---
