@@ -7,6 +7,8 @@
   </a>
 </div>
 
+<br> <br>
+
 # Sampling-Horizon Neural Operator Predictors for Nonlinear Control under Delayed Inputs
 
 ![Main results: joint tracking, measurement schedule, state error, and prediction error across Numerical, Case 1, and Case 2 predictors](media/mainfig.png)
@@ -46,8 +48,8 @@ Dependencies: `pinocchio`, `neuralop`, `torch`, `numpy`, `scikit-learn`, `matplo
 
 Pretrained datasets and models are hosted on Hugging Face:
 
-- **Dataset:** *(link)*
-- **Models:** *(link)*
+- **Dataset:** [Hugging Face](https://huggingface.co/datasets/lukebhan/NeuralOperatorPredictorsForSampledMeasurements/tree/main)
+- **Models:** [Hugging Face](https://huggingface.co/lukebhan/NeuralOperatorPredictorsForSampledMeasurements)
 
 Place the downloaded files in the `dataset/` and `models/` directories.
 
